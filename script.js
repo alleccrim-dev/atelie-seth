@@ -1119,7 +1119,7 @@
   botoesModo.forEach(b =>
     b.addEventListener("click", () => alternarModo(b.dataset.modo))
   );
-  /* Easter egg: Randomizar apertado 5x rápido → a mesa pisca de cor e as
+  /* Easter egg: Randomizar (botão ou tecla R) 5x rápido → a mesa pisca de cor e as
      peças saem andando sozinhas, quicando nas paredes como o logo do DVD.
      Depois de ~9 s o atrito volta e elas param por volta dos 10 s.
      Dá para pegar uma peça no meio da festa. */
@@ -1156,7 +1156,9 @@
     canvas.classList.remove("festa");
   }
 
-  botaoRandomizar.addEventListener("click", () => {
+  // Usado pelo botão e pela tecla R: conta os acionamentos rápidos
+  function acionarRandomizar() {
+    if (modo !== "livre" || aberta) return;
     const agora = performance.now();
     cliquesRandomizar = cliquesRandomizar.filter(t => agora - t < FESTA.janela);
     cliquesRandomizar.push(agora);
@@ -1167,12 +1169,15 @@
     } else {
       randomizar();
     }
-  });
+  }
 
-  // Tecla R: randomiza (só no modo Livre)
+  botaoRandomizar.addEventListener("click", acionarRandomizar);
+
+  // Tecla R: mesmo comportamento do botão, inclusive o easter egg.
+  // Segurar a tecla não conta (e.repeat): só apertos de verdade.
   window.addEventListener("keydown", e => {
-    if (aberta || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === "r" || e.key === "R") randomizar();
+    if (aberta || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    if (e.key === "r" || e.key === "R") acionarRandomizar();
   });
 
   /* ------------------------------------------------------------------------
