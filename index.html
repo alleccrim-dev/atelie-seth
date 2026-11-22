@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acervo — Ateliê Seth</title>
+  <meta name="description" content="Arquivo interativo de artes-finais originais em nanquim do Ateliê Seth." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="page-acervo">
+
+  <!-- Cabeçalho comum às três páginas -->
+  <header class="site-header">
+    <nav class="site-nav" aria-label="Seções do site">
+      <a href="pesquisa.html">Pesquisa</a>
+      <a href="seth.html">Ateliê Seth</a>
+      <a href="index.html" aria-current="page">Acervo</a>
+    </nav>
+    <p class="site-header__meta">Artes-finais em nanquim · <span id="piece-count">0</span> peças</p>
+  </header>
+
+  <!-- Organização da mesa -->
+  <div class="controls" role="toolbar" aria-label="Organização do acervo">
+    <div class="controls__group" role="group" aria-label="Disposição das peças">
+      <button type="button" class="ctrl" data-modo="livre" aria-pressed="true">Livre</button>
+      <span class="controls__sep" aria-hidden="true">/</span>
+      <button type="button" class="ctrl" data-modo="id" aria-pressed="false">Ordenado</button>
+      <span class="controls__sep" aria-hidden="true">/</span>
+      <button type="button" class="ctrl" data-modo="tamanho" aria-pressed="false"
+              title="Ordenar por tamanho (clique de novo para inverter)">Tamanho <span class="ctrl__seta" aria-hidden="true">↑</span></button>
+    </div>
+    <button type="button" class="ctrl ctrl--rand" id="btn-randomizar"
+            title="Espalhar as peças de novo (tecla R)">Randomizar <kbd>R</kbd></button>
+  </div>
+
+  <!-- Mesa de luz: os itens são inseridos aqui pelo script.js -->
+  <main id="canvas" class="canvas" aria-label="Mesa de trabalho com as artes-finais"></main>
+
+  <!-- Visualização em destaque + ficha técnica (preenchida pelo script.js) -->
+  <div id="viewer" class="viewer" role="dialog" aria-modal="true" aria-labelledby="viewer-title" hidden>
+    <div class="viewer__backdrop" data-close></div>
+
+    <div class="viewer__stage" id="viewer-stage" data-close>
+      <img class="viewer__image" id="viewer-image" alt="" draggable="false" />
+    </div>
+
+    <aside class="viewer__sheet" id="viewer-sheet" aria-label="Ficha técnica">
+      <header class="sheet__header">
+        <p class="sheet__kicker">Número de tombo</p>
+        <h2 class="sheet__title" id="viewer-title"></h2>
+      </header>
+      <dl class="sheet__list" id="viewer-list"></dl>
+    </aside>
+
+    <nav class="viewer__nav" aria-label="Navegar entre peças">
+      <button type="button" class="viewer__btn viewer__btn--prev" id="viewer-prev" aria-label="Peça anterior">←</button>
+      <span class="viewer__counter" id="viewer-counter" aria-live="polite"></span>
+      <button type="button" class="viewer__btn viewer__btn--next" id="viewer-next" aria-label="Próxima peça">→</button>
+    </nav>
+
+    <button type="button" class="viewer__close" id="viewer-close" aria-label="Fechar visualização">Fechar <span aria-hidden="true">×</span></button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
