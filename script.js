@@ -9,74 +9,11 @@
 
   /* ------------------------------------------------------------------------
      1. DADOS
-     Substitua pelos dados reais. `largura` e `altura` em centímetros
-     são usados para manter a proporção física entre as peças na mesa
-     e para o modo "Tamanho".
-     `imagem`: caminho do scan (ex.: "img/mps-01.jpg"). Se for null,
-     um placeholder é gerado automaticamente.
+     Vêm de acervo.js (window.ACERVO), carregado antes deste arquivo.
+     Cada peça ganha `dimensoes: { largura, altura }` em mm, decididas a
+     partir de `medidas` e da orientação do scan (ver orientar()).
      ------------------------------------------------------------------------ */
-  const ACERVO = [
-    {
-      id: "MPS 01",
-      imagem: null,
-      datacao: "c. 1960",
-      descricao: "Placeholder — descrição da ilustração.",
-      texto: "Placeholder — texto/slogan.",
-      dimensoes: { largura: 21, altura: 29.7 },
-      suporte: "Papel cartão",
-      tecnica: "Nanquim a bico de pena",
-      impressao: "Rotogravura",
-      analise: "Placeholder — análise visual e lettering."
-    },
-    {
-      id: "MPS 02",
-      imagem: null,
-      datacao: "c. 1962",
-      descricao: "Placeholder — descrição da ilustração.",
-      texto: "Placeholder — texto/slogan.",
-      dimensoes: { largura: 32, altura: 22 },
-      suporte: "Papel Schoeller",
-      tecnica: "Nanquim e guache branco",
-      impressao: "Rotogravura",
-      analise: "Placeholder — análise visual e lettering."
-    },
-    {
-      id: "MPS 03",
-      imagem: null,
-      datacao: "c. 1958",
-      descricao: "Placeholder — descrição da ilustração.",
-      texto: "Placeholder — texto/slogan.",
-      dimensoes: { largura: 14, altura: 18 },
-      suporte: "Papel vegetal",
-      tecnica: "Nanquim a pincel",
-      impressao: "Rotogravura",
-      analise: "Placeholder — análise visual e lettering."
-    },
-    {
-      id: "MPS 04",
-      imagem: null,
-      datacao: "c. 1965",
-      descricao: "Placeholder — descrição da ilustração.",
-      texto: "Placeholder — texto/slogan.",
-      dimensoes: { largura: 40, altura: 15 },
-      suporte: "Papel cartão",
-      tecnica: "Nanquim e retícula aplicada",
-      impressao: "Rotogravura",
-      analise: "Placeholder — análise visual e lettering."
-    },
-    {
-      id: "MPS 05",
-      imagem: null,
-      datacao: "c. 1961",
-      descricao: "Placeholder — descrição da ilustração.",
-      texto: "Placeholder — texto/slogan.",
-      dimensoes: { largura: 25, altura: 25 },
-      suporte: "Papel Canson",
-      tecnica: "Nanquim a bico de pena",
-      impressao: "Rotogravura",
-      analise: "Placeholder — análise visual e lettering."
-    }
-  ];
+  const ACERVO = window.ACERVO || [];
 
   /* ------------------------------------------------------------------------
      2. CONFIGURAÇÃO
@@ -85,7 +22,8 @@
     margem: 48,              // respiro mínimo nas laterais (px; 20 em telas estreitas)
     respiro: 20,             // distância entre as peças e o cabeçalho/controles (px)
     ocupacao: 0.42,          // fração da área útil coberta pelas peças (0–1)
-    ladoMinimo: 90,          // nenhuma peça fica menor que isso na dispersão (px; 44 em telas estreitas)
+    ladoMinimo: 48,          // menor lado da menor peça na mesa livre (px; 28 em telas estreitas).
+                             // Sobe a escala de TODAS as peças juntas: a proporção real é mantida.
     rotacaoMax: 4,           // micro-rotação inicial máxima (graus, ±)
     tentativas: 60,          // candidatos testados por peça no espalhamento
     sobreposicaoMax: 0.18,   // fração máxima da peça que pode ficar coberta
@@ -101,6 +39,8 @@
 
     fisica: {
       atrito: 650,           // ms: quanto maior, mais a peça desliza depois de solta
+      deslizeRandomizar: 0.35,// multiplica o atrito no Randomizar (maior = deslize mais longo;
+                              // 0.35 ≈ 0,7 s até assentar, rápido mas sem parada seca)
       restituicao: 0.82,     // energia mantida ao bater na borda (1 = DVD sem perda)
       velocidadeMax: 5,      // px/ms: limite da velocidade de lançamento
       inclinacao: 5,         // graus de inclinação por px/ms durante o arrasto
@@ -156,8 +96,8 @@
   // Placeholder SVG simulando uma arte-final em nanquim sobre papel
   function gerarPlaceholder(dados, indice) {
     const { largura, altura } = dados.dimensoes;
-    const W = Math.round(largura * 20);
-    const H = Math.round(altura * 20);
+    const W = Math.round(largura * 3); // mm → px do SVG
+    const H = Math.round(altura * 3);
     const m = Math.min(W, H) * 0.08;
     const fonte = Math.min(W, H) * 0.12;
 
@@ -179,7 +119,7 @@
               font-size="${fonte}" fill="#111" letter-spacing="1">${dados.id}</text>
         <text x="${W - m * 1.2}" y="${m * 0.75}" text-anchor="end"
               font-family="Helvetica, Arial, sans-serif" font-size="${fonte * 0.32}"
-              fill="#9a9488">${largura} × ${altura} cm</text>
+              fill="#9a9488">${largura} × ${altura} mm</text>
       </svg>`;
 
     return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.trim());
@@ -197,11 +137,14 @@
       el.setAttribute("aria-label", `${dados.id} — ${dados.datacao}`);
       el.dataset.id = dados.id;
 
+      // Até o scan carregar, vale a ordem da ficha
+      const [a, b] = dados.medidas;
+      dados.dimensoes = { largura: a, altura: b };
+
       const img = document.createElement("img");
-      img.alt = `Arte-final ${dados.id}`;
+      img.alt = `Arte-final ${dados.id}` + (dados.descricao && dados.descricao !== "Nulo" ? ` — ${dados.descricao}` : "");
       img.draggable = false;
       img.decoding = "async";
-      img.src = dados.imagem || gerarPlaceholder(dados, i);
 
       const rotulo = document.createElement("figcaption");
       rotulo.className = "piece__label";
@@ -211,7 +154,8 @@
       mesa.appendChild(el);
 
       const peca = {
-        dados, el,
+        dados, el, img,
+        temScan: false,
         x: 0, y: 0, w: 0, h: 0, rot: 0,
         tilt: 0, vt: 0, s: 1,
         vx: 0, vy: 0, vr: 0,
@@ -223,6 +167,38 @@
     });
 
     contador.textContent = ACERVO.length;
+  }
+
+  // Carrega o scan; se ele não existir (ainda), usa o placeholder.
+  function carregarImagem(p, i) {
+    return new Promise(resolve => {
+      const reserva = () => {
+        p.img.onerror = null;
+        p.img.onload = () => resolve();
+        p.img.src = gerarPlaceholder(p.dados, i);
+      };
+      if (!p.dados.imagem) { reserva(); return; }
+      p.img.onload = () => {
+        p.temScan = true;
+        p.el.classList.add("tem-scan"); // scan recortado: sombra segue o contorno
+        orientar(p);
+        resolve();
+      };
+      p.img.onerror = reserva;
+      p.img.src = p.dados.imagem;
+    });
+  }
+
+  // A ficha nem sempre lista largura × altura nessa ordem. Se o scan está
+  // "deitado" e a medida "em pé" (ou o contrário), inverte as medidas.
+  function orientar(p) {
+    const [a, b] = p.dados.medidas;
+    if (a === b) return;
+    const scanDeitado = p.img.naturalWidth > p.img.naturalHeight;
+    const medidaDeitada = a > b;
+    p.dados.dimensoes = scanDeitado === medidaDeitada
+      ? { largura: a, altura: b }
+      : { largura: b, altura: a };
   }
 
   /* ------------------------------------------------------------------------
@@ -244,17 +220,23 @@
     return { x: margem, y: topo, w: W - margem * 2, h: Math.max(100, base - topo) };
   }
 
-  // Mesmo px/cm para todas as peças, para que o conjunto ocupe
-  // ~CONFIG.ocupacao da área útil.
+  // Um único px/mm para todas as peças: os tamanhos na tela são
+  // proporcionais aos tamanhos reais. A escala faz o conjunto ocupar
+  // ~CONFIG.ocupacao da área útil, sobe se a menor peça ficar pequena
+  // demais e nunca deixa uma peça passar de 45% da largura/altura úteis.
   function dimensionar() {
     const area = areaUtil();
-    const areaCm2 = pecas.reduce(
+    const areaMm2 = pecas.reduce(
       (soma, p) => soma + p.dados.dimensoes.largura * p.dados.dimensoes.altura,
       0
     );
-    let escala = Math.sqrt((area.w * area.h * CONFIG.ocupacao) / areaCm2);
+    let escala = Math.sqrt((area.w * area.h * CONFIG.ocupacao) / areaMm2);
 
-    // Nenhuma peça ultrapassa 45% da largura/altura úteis
+    const menorLado = Math.min(...pecas.map(p =>
+      Math.min(p.dados.dimensoes.largura, p.dados.dimensoes.altura)));
+    const minimo = window.innerWidth < 700 ? 28 : CONFIG.ladoMinimo;
+    escala = Math.max(escala, minimo / menorLado);
+
     pecas.forEach(p => {
       const { largura, altura } = p.dados.dimensoes;
       escala = Math.min(escala, (area.w * 0.45) / largura, (area.h * 0.45) / altura);
@@ -262,15 +244,8 @@
 
     pecas.forEach(p => {
       const { largura, altura } = p.dados.dimensoes;
-      let w = largura * escala;
-      let h = altura * escala;
-      const menor = Math.min(w, h);
-      const minimo = window.innerWidth < 700 ? 44 : CONFIG.ladoMinimo;
-      if (menor < minimo) {
-        const f = minimo / menor;
-        w *= f;
-        h *= f;
-      }
+      const w = largura * escala;
+      const h = altura * escala;
       p.w = Math.round(w);
       p.h = Math.round(h);
       p.el.style.width = p.w + "px";
@@ -355,14 +330,43 @@
     });
   }
 
-  // Botão "Randomizar" / tecla R: as peças deslizam até as novas posições
+  // Botão "Randomizar" / tecla R: cada peça é "lançada" na direção da nova
+  // posição e desliza com o mesmo atrito do arrasto, perdendo velocidade aos
+  // poucos até parar exatamente no destino (sem parada seca).
+  // Numa desaceleração exponencial, a distância total percorrida é
+  // velocidade inicial × constante de atrito; daí v0 = distância ÷ atrito.
+  //
+  // Randomizar de novo no meio do deslize não freia nada: cada peça segue
+  // com o embalo que tem e só muda de rumo para o novo destino.
   function randomizar() {
     if (modo !== "livre" || aberta || festa) return;
     resetVista(true);
-    pecas.forEach(pararFisica);
+    pecas.forEach(p => {
+      clearTimeout(p.timerRand); // cancela só o lançamento que ainda não saiu
+      pararMovimento(p);         // transição de modo (CSS), se houver
+      p.alvo = null;
+    });
     const destinos = calcularEspalhamento();
     empilharAleatorio();
-    animarPara([...pecas].sort(() => Math.random() - 0.5), p => destinos.get(p));
+
+    if (movimentoReduzido()) {
+      pecas.forEach(p => definirPosicao(p, destinos.get(p)));
+      return;
+    }
+
+    const tau = CONFIG.fisica.atrito * CONFIG.fisica.deslizeRandomizar;
+    [...pecas].sort(() => Math.random() - 0.5).forEach((p, i) => {
+      const d = destinos.get(p);
+      p.timerRand = setTimeout(() => {
+        if (p.arrastando) return; // peça na mão do usuário: deixa quieta
+        p.vx = (d.x - p.x) / tau;
+        p.vy = (d.y - p.y) / tau;
+        p.vr = (d.rot - p.rot) / tau;
+        p.tau = tau;          // atrito próprio deste deslize
+        p.voando = true;
+        acordar(p);
+      }, i * 6); // escalonamento curto: todas saem em ~0,2 s
+    });
   }
 
   /* ------------------------------------------------------------------------
@@ -426,6 +430,8 @@
   }
 
   function pararFisica(p) {
+    clearTimeout(p.timerRand);
+    p.tau = 0;
     ativos.delete(p);
     p.voando = false;
     p.arrastando = false;
@@ -538,7 +544,7 @@
 
     // Deslize livre com atrito e batidas nas bordas
     if (!p.arrastando && p.voando) {
-      const desacel = festa ? 1 : Math.exp(-dt / F.atrito); // na festa, sem atrito
+      const desacel = festa ? 1 : Math.exp(-dt / (p.tau || F.atrito)); // na festa, sem atrito
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
@@ -554,6 +560,7 @@
       const fora = quicar(p, dt);
       if (!fora && Math.hypot(p.vx, p.vy) < 0.01 && Math.abs(p.vr) < 0.0005) {
         p.voando = false;
+        p.tau = 0;
         p.vx = p.vy = p.vr = 0;
       } else {
         vivo = true;
@@ -601,7 +608,9 @@
       p.el.setPointerCapture(e.pointerId);
       trazerParaFrente(p);
 
-      // "Pega" a peça no ar, se estiver deslizando
+      // "Pega" a peça no ar, se estiver deslizando (ou prestes a deslizar)
+      clearTimeout(p.timerRand);
+      p.tau = 0;
       p.voando = false;
       p.alvo = null;
       p.vx = p.vy = p.vr = 0;
@@ -709,17 +718,19 @@
      ------------------------------------------------------------------------ */
 
   // Campos exibidos na ficha, na ordem. [chave, rótulo, formatador opcional]
+  // (A tecnologia de reprodução fica de fora por enquanto.)
   const numeroBR = n => Number(n).toLocaleString("pt-BR");
   const FICHA = [
     ["datacao",   "Datação"],
     ["descricao", "Descrição da ilustração"],
-    ["texto",     "Texto / slogan"],
-    ["dimensoes", "Dimensões físicas",
-      d => `${numeroBR(d.largura)} × ${numeroBR(d.altura)} cm (L × A)`],
-    ["suporte",   "Suporte / papel"],
-    ["tecnica",   "Técnica / processo de criação"],
-    ["impressao", "Sistema de impressão"],
-    ["analise",   "Análise visual / lettering"]
+    ["texto",     "Texto ou slogan"],
+    ["suporte",   "Suporte material"],
+    ["medidas",   "Medidas", m => `${numeroBR(m[0])} × ${numeroBR(m[1])} mm`],
+    ["tecnica",   "Técnicas de execução"],
+    ["marcas",    "Marcas da peça (refinamento e guia)"],
+    ["escrita",   "Escrita gráfica"],
+    ["linguagem", "Linguagem"],
+    ["tipologia", "Tipologia da peça publicitária"]
   ];
 
   const V = {
@@ -744,11 +755,16 @@
   let animando = false;
   let focoAnterior = null;
 
-  // Proporção real da imagem (scan carregado) ou, na falta, das dimensões físicas
-  function proporcao(p) {
-    const img = p.el.querySelector("img");
-    if (img.naturalWidth && img.naturalHeight) return img.naturalWidth / img.naturalHeight;
+  // Proporção física (medidas da ficha): usada nos tamanhos e layouts da mesa
+  function proporcaoFisica(p) {
     return p.dados.dimensoes.largura / p.dados.dimensoes.altura;
+  }
+
+  // Proporção do arquivo de imagem: usada no visualizador, para não distorcer o scan
+  function proporcao(p) {
+    const img = p.img;
+    if (img.naturalWidth && img.naturalHeight) return img.naturalWidth / img.naturalHeight;
+    return proporcaoFisica(p);
   }
 
   // Retângulo final da imagem: o maior possível dentro da área do palco
@@ -787,7 +803,7 @@
     const d = p.dados;
     V.title.textContent = d.id;
     V.img.src = p.el.querySelector("img").src;
-    V.img.alt = `Arte-final ${d.id}` + (d.descricao ? ` — ${d.descricao}` : "");
+    V.img.alt = p.img.alt;
 
     V.list.replaceChildren();
     FICHA.forEach(([chave, rotulo, formatar]) => {
@@ -798,7 +814,8 @@
       const dt = document.createElement("dt");
       dt.textContent = rotulo;
       const dd = document.createElement("dd");
-      dd.textContent = formatar ? formatar(valor) : valor; // textContent: seguro contra HTML
+      // "Nulo" na ficha = campo sem conteúdo; aparece como travessão
+      dd.textContent = valor === "Nulo" ? "—" : formatar ? formatar(valor) : valor;
       item.append(dt, dd);
       V.list.appendChild(item);
     });
@@ -818,6 +835,7 @@
     resetZoomViewer(false);
     preencherFicha(p);
     V.el.hidden = false;
+    posicionarBotaoReset();
     document.body.classList.add("viewer-open");
 
     const final = retanguloFinal(p);
@@ -837,6 +855,7 @@
     anim.onfinish = () => {
       animando = false;
       V.el.focus({ preventScroll: true });
+      atualizarBotaoReset();
     };
   }
 
@@ -912,6 +931,8 @@
     else if (e.key === "ArrowRight") { e.preventDefault(); navegar(1); }
     else if (e.key === "Tab") {
       const focaveis = [V.close, V.sheet, V.prev, V.next];
+      const acoesVisiveis = [botaoReset, botaoVirar].filter(b => b.tabIndex === 0);
+      focaveis.splice(1, 0, ...acoesVisiveis);
       const i = focaveis.indexOf(document.activeElement);
       e.preventDefault();
       const prox = e.shiftKey
@@ -927,6 +948,7 @@
     if (aberta && !animando) {
       resetZoomViewer(false);
       posicionarImagem(retanguloFinal(aberta));
+      posicionarBotaoReset();
     }
   });
 
@@ -960,7 +982,7 @@
     const n = lista.length;
     const { gapX, gapY, rotulo } = CONFIG.grade;
     const encaixe = (p, cw, ch) => {
-      const ar = proporcao(p);
+      const ar = proporcaoFisica(p);
       const w = Math.min(cw, ch * ar);
       return { w, h: w / ar };
     };
@@ -1000,14 +1022,14 @@
   function layoutTamanho(lista) {
     const area = areaUtil();
     const { gapX, gapY, rotulo } = CONFIG.grade;
-    const itens = lista.map(p => ({ p, cm: p.dados.dimensoes.largura, ar: proporcao(p) }));
+    const itens = lista.map(p => ({ p, mm: p.dados.dimensoes.largura, ar: proporcaoFisica(p) }));
 
     const montar = escala => {
       const linhas = [];
       let linha = [];
       let largura = 0;
       for (const it of itens) {
-        const w = it.cm * escala;
+        const w = it.mm * escala;
         const h = w / it.ar;
         if (linha.length && largura + gapX + w > area.w) {
           linhas.push(linha);
@@ -1020,12 +1042,12 @@
       if (linha.length) linhas.push(linha);
       const alturas = linhas.map(l => Math.max(...l.map(it => it.h)));
       const total = alturas.reduce((s, h) => s + h + rotulo, 0) + gapY * (linhas.length - 1);
-      const cabe = total <= area.h && itens.every(it => it.cm * escala <= area.w);
+      const cabe = total <= area.h && itens.every(it => it.mm * escala <= area.w);
       return { linhas, alturas, total, cabe };
     };
 
     // Busca binária pela maior escala que cabe
-    let lo = 0.1, hi = 400;
+    let lo = 0.01, hi = 400;
     for (let i = 0; i < 32; i++) {
       const mid = (lo + hi) / 2;
       if (montar(mid).cabe) lo = mid; else hi = mid;
@@ -1089,7 +1111,7 @@
   }
 
   function alternarModo(novo) {
-    if (aberta) return;
+    if (aberta || !pronto) return;
 
     // Clicar em "Tamanho" com ele já ativo inverte o sentido
     if (novo === "tamanho" && modo === "tamanho") sentidoTamanho *= -1;
@@ -1119,11 +1141,11 @@
   botoesModo.forEach(b =>
     b.addEventListener("click", () => alternarModo(b.dataset.modo))
   );
-  /* Easter egg: Randomizar (botão ou tecla R) 5x rápido → a mesa pisca de cor e as
+  /* Easter egg: Randomizar (botão ou tecla R) 4x rápido → a mesa pisca de cor e as
      peças saem andando sozinhas, quicando nas paredes como o logo do DVD.
      Depois de ~9 s o atrito volta e elas param por volta dos 10 s.
      Dá para pegar uma peça no meio da festa. */
-  const FESTA = { cliques: 5, janela: 1800, duracao: 9000 };
+  const FESTA = { cliques: 4, janela: 1500, duracao: 9000 }; // 4 acionamentos em até 1,5 s
   let cliquesRandomizar = [];
   let festa = false;
   let timerFesta = 0;
@@ -1158,7 +1180,7 @@
 
   // Usado pelo botão e pela tecla R: conta os acionamentos rápidos
   function acionarRandomizar() {
-    if (modo !== "livre" || aberta) return;
+    if (modo !== "livre" || aberta || !pronto) return;
     const agora = performance.now();
     cliquesRandomizar = cliquesRandomizar.filter(t => agora - t < FESTA.janela);
     cliquesRandomizar.push(agora);
@@ -1189,6 +1211,7 @@
   let timerResize = null;
 
   window.addEventListener("resize", () => {
+    if (!pronto) return;
     clearTimeout(timerResize);
     timerResize = setTimeout(() => {
       const W = window.innerWidth;
@@ -1346,15 +1369,39 @@
   canvas.addEventListener("pointercancel", fimPanMesa);
 
   /* ------------------------------------------------------------------------
-     16. ZOOM E PAN NA VISUALIZAÇÃO EM DESTAQUE (#viewer)
+     16. ZOOM, PAN E ROTAÇÃO NA VISUALIZAÇÃO EM DESTAQUE (#viewer)
      - Roda do mouse sobre o palco: zoom ancorado no cursor, a partir de 1x.
        Máximo por peça: (largura nativa ÷ largura exibida) × 1.5, entre 2x e 8x.
-     - Com zoom > 1x, arrastar a imagem faz pan (sem fechar o modal).
-     - Espaço: volta suavemente a 1x, centralizada.
-     O zoom usa transform na imagem (origem no centro), por cima do
-     retângulo calculado em retanguloFinal().
+     - Arrastar a imagem (mãozinha):
+         em 1x  → gira a peça em torno do centro, com suavização e embalo
+                  (ao soltar rápido, ela continua girando e desacelera);
+         com zoom → pan, para inspecionar detalhes.
+       Um clique sem arrastar, em 1x, continua fechando o visualizador.
+     - "↻ virar": gira 90° no sentido horário, até o próximo ângulo reto.
+     - "▢ posição original" (aparece quando a peça foi girada, ampliada ou
+       movida) e Espaço: voltam tudo ao normal.
+     As duas ações ficam sempre no mesmo lugar, acima da peça mais alta.
+     O transform da imagem (origem no centro) fica por cima do retângulo
+     calculado em retanguloFinal(): translate → rotate → scale.
      ------------------------------------------------------------------------ */
-  const ZV = { z: 1, tx: 0, ty: 0, pan: null, ignorarClique: false, cancelar: null };
+  const ZV = {
+    z: 1, tx: 0, ty: 0,
+    r: 0,          // ângulo exibido (graus)
+    alvoR: 0,      // ângulo para onde a rotação está indo
+    vGiro: 0,      // embalo depois de soltar (graus/ms)
+    gesto: null, ignorarClique: false, cancelar: null
+  };
+  const GIRO = {
+    suavidade: 70,     // ms: quanto o ângulo "persegue" o dedo/cursor (menor = mais colado)
+    atrito: 420,       // ms: duração do embalo depois de soltar
+    velocidadeMax: 1.2 // graus/ms
+  };
+  const acoes = document.getElementById("viewer-acoes");
+  const botaoReset = document.getElementById("viewer-reset");
+  const botaoVirar = document.getElementById("viewer-virar");
+
+  const normalizarAngulo = a => ((a % 360) + 540) % 360 - 180; // (-180, 180]
+  const normalizarRad = a => Math.atan2(Math.sin(a), Math.cos(a));
 
   function zoomMaximo(r) {
     const nativa = V.img.naturalWidth;
@@ -1370,89 +1417,227 @@
     ZV.ty = limitar(ZV.ty, -ly, ly);
   }
 
+  const estaNeutro = () =>
+    Math.abs(ZV.z - 1) < 0.001 && Math.abs(ZV.tx) < 0.5 &&
+    Math.abs(ZV.ty) < 0.5 && Math.abs(normalizarAngulo(ZV.alvoR)) < 0.1 &&
+    Math.abs(normalizarAngulo(ZV.r)) < 0.1;
+
   function aplicarZoomViewer() {
-    const neutro = ZV.z === 1 && ZV.tx === 0 && ZV.ty === 0;
+    const neutro = ZV.z === 1 && ZV.tx === 0 && ZV.ty === 0 && ZV.r === 0;
     V.img.style.transform = neutro
       ? ""
-      : `translate(${ZV.tx}px, ${ZV.ty}px) scale(${ZV.z})`;
-    V.stage.classList.toggle("is-zoomed", ZV.z > 1.001);
+      : `translate(${ZV.tx}px, ${ZV.ty}px) rotate(${ZV.r}deg) scale(${ZV.z})`;
+    // recorte no palco: a imagem girada/ampliada não invade a ficha
+    V.stage.classList.toggle("is-zoomed", !neutro);
+    atualizarBotaoReset();
+  }
+
+  // Posição fixa das ações: centro do palco, acima do topo da peça que fica
+  // mais alta no visualizador. Calculada uma vez por abertura/redimensionamento.
+  function posicionarBotaoReset() {
+    const topo = Math.min(...pecas.map(p => retanguloFinal(p).y));
+    const r = retanguloFinal(aberta || pecas[0]);
+    acoes.style.left = r.x + r.w / 2 + "px"; // todas as peças são centralizadas
+    acoes.style.top = Math.max(12, topo - 44) + "px";
+  }
+
+  function atualizarBotaoReset() {
+    const grupo = !!aberta && !animando;
+    acoes.classList.toggle("is-visible", grupo);
+    botaoVirar.tabIndex = grupo ? 0 : -1;
+    // "posição original": só quando há algo a desfazer
+    const reset = grupo && !ZV.cancelar && !estaNeutro();
+    botaoReset.classList.toggle("is-visible", reset);
+    botaoReset.tabIndex = reset ? 0 : -1;
+    botaoReset.setAttribute("aria-hidden", String(!reset));
+  }
+
+  /* Laço da rotação: o ângulo exibido persegue o ângulo-alvo com
+     suavização exponencial; depois de soltar, o embalo empurra o alvo
+     e vai sumindo pelo atrito. Para sozinho quando tudo assenta. */
+  let rafGiro = 0;
+  let ultimoGiro = 0;
+
+  function acordarGiro() {
+    if (rafGiro) return;
+    ultimoGiro = performance.now();
+    rafGiro = requestAnimationFrame(passoGiro);
+  }
+
+  function pararGiro() {
+    cancelAnimationFrame(rafGiro);
+    rafGiro = 0;
+    ZV.vGiro = 0;
+  }
+
+  function passoGiro(t) {
+    const dt = Math.min(32, Math.max(1, t - ultimoGiro));
+    ultimoGiro = t;
+
+    if (ZV.vGiro && !ZV.gesto) {
+      ZV.alvoR += ZV.vGiro * dt;
+      ZV.vGiro *= Math.exp(-dt / GIRO.atrito);
+      if (Math.abs(ZV.vGiro) < 0.003) ZV.vGiro = 0;
+    }
+
+    ZV.r += (ZV.alvoR - ZV.r) * (1 - Math.exp(-dt / GIRO.suavidade));
+    const assentou = Math.abs(ZV.alvoR - ZV.r) < 0.05 && !ZV.vGiro && !ZV.gesto;
+    if (assentou) ZV.r = ZV.alvoR = normalizarAngulo(ZV.alvoR); // 360° = 0°
+    aplicarZoomViewer();
+    rafGiro = assentou ? 0 : requestAnimationFrame(passoGiro);
   }
 
   function resetZoomViewer(suave) {
     if (ZV.cancelar) { ZV.cancelar(); ZV.cancelar = null; }
-    ZV.pan = null;
+    pararGiro();
+    ZV.gesto = null;
     V.img.classList.remove("is-panning");
-    const de = { z: ZV.z, tx: ZV.tx, ty: ZV.ty };
+    ZV.r = normalizarAngulo(ZV.r); // volta pelo caminho mais curto
+    ZV.alvoR = ZV.r;
+    const de = { z: ZV.z, tx: ZV.tx, ty: ZV.ty, r: ZV.r };
     const fim = () => {
       ZV.cancelar = null;
       ZV.z = 1;
       ZV.tx = 0;
       ZV.ty = 0;
+      ZV.r = ZV.alvoR = 0;
       aplicarZoomViewer();
     };
     if (!suave || movimentoReduzido() ||
-        (de.z === 1 && de.tx === 0 && de.ty === 0)) { fim(); return; }
+        (de.z === 1 && de.tx === 0 && de.ty === 0 && de.r === 0)) { fim(); return; }
 
-    ZV.cancelar = tween(380, k => {
+    ZV.cancelar = tween(420, k => {
       ZV.z = de.z + (1 - de.z) * k;
       ZV.tx = de.tx * (1 - k);
       ZV.ty = de.ty * (1 - k);
+      ZV.r = ZV.alvoR = de.r * (1 - k);
       aplicarZoomViewer();
     }, fim);
+    atualizarBotaoReset();
   }
+
+  // Virar: 90° no sentido horário, até o próximo ângulo reto.
+  // Cliques seguidos acumulam (cada um soma mais 90°).
+  function virar() {
+    if (!aberta || animando) return;
+    if (ZV.cancelar) { ZV.cancelar(); ZV.cancelar = null; ZV.alvoR = ZV.r; }
+    ZV.vGiro = 0;
+    ZV.alvoR = Math.floor(ZV.alvoR / 90 + 1e-6) * 90 + 90;
+    if (movimentoReduzido()) { ZV.r = ZV.alvoR; aplicarZoomViewer(); return; }
+    acordarGiro();
+  }
+
+  botaoReset.addEventListener("click", e => {
+    e.stopPropagation();
+    resetZoomViewer(true);
+    botaoVirar.focus({ preventScroll: true }); // o botão some; o foco vai para "virar"
+  });
+  botaoVirar.addEventListener("click", e => {
+    e.stopPropagation();
+    virar();
+  });
 
   V.stage.addEventListener("wheel", e => {
     e.preventDefault();
     if (!aberta || animando) return;
-    if (ZV.cancelar) { ZV.cancelar(); ZV.cancelar = null; }
+    if (ZV.cancelar) { ZV.cancelar(); ZV.cancelar = null; ZV.alvoR = ZV.r; }
 
     const r = retanguloFinal(aberta);
     const novo = limitar(ZV.z * fatorRoda(e), 1, zoomMaximo(r));
     if (novo === ZV.z) return;
 
-    // ponto da imagem sob o cursor (relativo ao centro, antes do zoom)
+    // mantém sob o cursor o mesmo ponto da imagem (vale com a peça girada:
+    // a rotação se cancela na conta)
     const cx = r.x + r.w / 2;
     const cy = r.y + r.h / 2;
-    const lx = (e.clientX - cx - ZV.tx) / ZV.z;
-    const ly = (e.clientY - cy - ZV.ty) / ZV.z;
+    const f = novo / ZV.z;
+    ZV.tx = e.clientX - cx - (e.clientX - cx - ZV.tx) * f;
+    ZV.ty = e.clientY - cy - (e.clientY - cy - ZV.ty) * f;
     ZV.z = novo;
-    ZV.tx = e.clientX - cx - novo * lx;
-    ZV.ty = e.clientY - cy - novo * ly;
     limitarPanZoom(r);
     aplicarZoomViewer();
   }, { passive: false });
 
   V.img.addEventListener("pointerdown", e => {
-    if (e.button !== 0 || animando || ZV.z <= 1.001) return;
+    if (e.button !== 0 || animando || !aberta) return;
     e.preventDefault();
-    if (ZV.cancelar) { ZV.cancelar(); ZV.cancelar = null; }
+    if (ZV.cancelar) { ZV.cancelar(); ZV.cancelar = null; ZV.alvoR = ZV.r; }
+    ZV.vGiro = 0; // "pega" a peça se ainda estiver girando
     V.img.setPointerCapture(e.pointerId);
-    ZV.pan = { id: e.pointerId, sx: e.clientX, sy: e.clientY, tx: ZV.tx, ty: ZV.ty, moveu: false };
+
+    const r = retanguloFinal(aberta);
+    const cx = r.x + r.w / 2 + ZV.tx; // centro da imagem na tela
+    const cy = r.y + r.h / 2 + ZV.ty;
+    const a = Math.atan2(e.clientY - cy, e.clientX - cx);
+    ZV.gesto = {
+      tipo: ZV.z > 1.001 ? "pan" : "girar",
+      id: e.pointerId, sx: e.clientX, sy: e.clientY,
+      tx: ZV.tx, ty: ZV.ty,
+      cx, cy,
+      r0: ZV.alvoR,   // gira a partir de onde a peça está indo
+      aAnt: a,        // último ângulo do ponteiro (rad)
+      giro: 0,        // giro acumulado (rad), sem saltos ao passar de 180°
+      amostras: [{ t: performance.now(), r: ZV.alvoR }],
+      moveu: false
+    };
     V.img.classList.add("is-panning");
   });
 
   V.img.addEventListener("pointermove", e => {
-    if (!ZV.pan || e.pointerId !== ZV.pan.id) return;
-    const dx = e.clientX - ZV.pan.sx;
-    const dy = e.clientY - ZV.pan.sy;
-    if (Math.hypot(dx, dy) > 3) ZV.pan.moveu = true;
-    ZV.tx = ZV.pan.tx + dx;
-    ZV.ty = ZV.pan.ty + dy;
-    limitarPanZoom(retanguloFinal(aberta));
-    aplicarZoomViewer();
+    const g = ZV.gesto;
+    if (!g || e.pointerId !== g.id) return;
+    const dx = e.clientX - g.sx;
+    const dy = e.clientY - g.sy;
+    if (!g.moveu && Math.hypot(dx, dy) <= 3) return;
+    g.moveu = true;
+
+    if (g.tipo === "pan") {
+      ZV.tx = g.tx + dx;
+      ZV.ty = g.ty + dy;
+      limitarPanZoom(retanguloFinal(aberta));
+      aplicarZoomViewer();
+      return;
+    }
+
+    // Muito perto do centro o ângulo fica instável: ignora
+    if (Math.hypot(e.clientX - g.cx, e.clientY - g.cy) < 12) return;
+    const a = Math.atan2(e.clientY - g.cy, e.clientX - g.cx);
+    g.giro += normalizarRad(a - g.aAnt);
+    g.aAnt = a;
+    ZV.alvoR = g.r0 + (g.giro * 180) / Math.PI;
+
+    const agora = performance.now();
+    g.amostras.push({ t: agora, r: ZV.alvoR });
+    while (g.amostras.length > 2 && agora - g.amostras[0].t > 100) g.amostras.shift();
+    acordarGiro();
   });
 
-  const fimPanZoom = e => {
-    if (!ZV.pan || e.pointerId !== ZV.pan.id) return;
+  const fimGesto = e => {
+    const g = ZV.gesto;
+    if (!g || e.pointerId !== g.id) return;
     if (V.img.hasPointerCapture(e.pointerId)) V.img.releasePointerCapture(e.pointerId);
-    // um clique sobre a imagem com zoom nunca fecha o modal
-    ZV.ignorarClique = true;
-    setTimeout(() => { ZV.ignorarClique = false; }, 0);
-    ZV.pan = null;
+
+    // Embalo: velocidade angular dos últimos ~100 ms (zero se parou antes de soltar)
+    if (g.tipo === "girar" && g.moveu) {
+      const agora = performance.now();
+      const a = g.amostras.filter(s => agora - s.t <= 100);
+      if (a.length >= 2 && agora - a[a.length - 1].t < 50) {
+        const dt = Math.max(a[a.length - 1].t - a[0].t, 8);
+        ZV.vGiro = limitar((a[a.length - 1].r - a[0].r) / dt, -GIRO.velocidadeMax, GIRO.velocidadeMax);
+      }
+    }
+
+    // arrastar (girar ou mover) nunca fecha o modal; clique simples em 1x fecha
+    if (g.moveu || g.tipo === "pan") {
+      ZV.ignorarClique = true;
+      setTimeout(() => { ZV.ignorarClique = false; }, 0);
+    }
+    ZV.gesto = null;
     V.img.classList.remove("is-panning");
+    acordarGiro();
   };
-  V.img.addEventListener("pointerup", fimPanZoom);
-  V.img.addEventListener("pointercancel", fimPanZoom);
+  V.img.addEventListener("pointerup", fimGesto);
+  V.img.addEventListener("pointercancel", fimGesto);
 
   /* ------------------------------------------------------------------------
      17. ESPAÇO: RESET DO ZOOM
@@ -1480,8 +1665,14 @@
   /* ------------------------------------------------------------------------
      INICIALIZAÇÃO
      ------------------------------------------------------------------------ */
+  // As peças só vão para a mesa depois que os scans carregam (ou caem no
+  // placeholder): assim a orientação e o tamanho já estão certos.
+  let pronto = false;
   criarPecas();
-  dimensionar();
-  espalharInicial();
   atualizarControles();
+  Promise.all(pecas.map(carregarImagem)).then(() => {
+    dimensionar();
+    espalharInicial();
+    pronto = true;
+  });
 })();

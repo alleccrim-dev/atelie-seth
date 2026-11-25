@@ -44,6 +44,17 @@
       <img class="viewer__image" id="viewer-image" alt="" draggable="false" />
     </div>
 
+    <!-- Ações sobre a peça (posição calculada pelo script) -->
+    <div class="viewer__acoes" id="viewer-acoes">
+      <span class="viewer__acoes-vazio" aria-hidden="true"></span>
+      <button type="button" class="viewer__acao viewer__reset" id="viewer-reset" tabindex="-1" aria-hidden="true">
+        <span aria-hidden="true">▢</span> posição original
+      </button>
+      <button type="button" class="viewer__acao" id="viewer-virar" aria-label="Virar 90 graus no sentido horário">
+        <span aria-hidden="true">↻</span> virar
+      </button>
+    </div>
+
     <aside class="viewer__sheet" id="viewer-sheet" aria-label="Ficha técnica">
       <header class="sheet__header">
         <p class="sheet__kicker">Número de tombo</p>
@@ -61,6 +72,7 @@
     <button type="button" class="viewer__close" id="viewer-close" aria-label="Fechar visualização">Fechar <span aria-hidden="true">×</span></button>
   </div>
 
+  <script src="acervo.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
